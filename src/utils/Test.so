@@ -1,0 +1,58 @@
+#! /bin/csh -f
+
+#  Test host compiler fflags dir
+
+#  Runs a cmlib test (possibly remotely)
+
+set host = $1
+set compiler = $2
+set fflags = "$3"
+set dir = $4
+set setupcmds = "$5"
+set testdir = ../../test
+
+if ("$host" == "`hostname`")  set host = ""
+if ("$compiler" == "")  set compiler = f77
+if ("$dir" == "")  set dir = $cwd
+
+(cd $testdir; ls *.f ) | sed "s/\.f//" > test.names
+
+echo " "
+cat test.names | pr -3 -l9 -t > /dev/tty
+rm test.names
+echo " "
+echo -n "Which test would you like to run? (Enter name) : " > /dev/tty
+set ans = $<
+if ("$ans" == "") exit
+if (! -e $testdir/$ans.f) then
+   echo "There is no test named $ans"
+   exit
+endif
+set pgm = $ans
+
+echo -n "Output level? (1, 2, or 3) : " > /dev/tty
+set ans = $<
+if ("$ans" == "") exit
+set input = "$ans""1"
+echo " "
+
+rm -f core
+
+if ("$host" == "") then
+   if ("$setupcmds" != "") $setupcmds
+   cd $dir
+   $compiler -o $pgm $fflags $testdir/$pgm.f $dir/libcm.so
+   echo $input | ./$pgm
+   rm $pgm.o
+else
+   set cmd = ""
+   if ("$setupcmds" != "") set cmd = "$setupcmds"
+   set cmd = "$cmd ; cd $dir"
+   set cmd = "$cmd ; $compiler -o $pgm $fflags $testdir/$pgm.f $dir/libcm.so"
+   set cmd = "$cmd ; echo $input | ./$pgm"
+   echo " " ; echo "Processing test $pgm on $host ... " ; echo " "
+   rsh $host "$cmd"
+   rm -f $pgm.o
+endif
+
+if (! -e core) rm -f $pgm

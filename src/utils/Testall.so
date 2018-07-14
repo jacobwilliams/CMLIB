@@ -1,0 +1,43 @@
+#  Testall host compiler fflags thisdir
+
+#    Runs all cmlib tests remotely.  Must be run from the directory
+#    containing compiled library, i.e. cmlib/export/lib/ARCH
+
+#      host     = machine on which tests are to be run
+#      compiler = name of compiler
+#      fflags   = compiler flags
+#      thisdir  = location of this directory on host
+
+set host = $1
+set compiler = $2
+set fflags = "$3"
+set thisdir = $4
+set setupcmds = "$5"
+
+if ("$host" == "`hostname`")  set host = ""
+if ("$compiler" == "")  set compiler = f77
+if ("$thisdir" == "")  set thisdir = $cwd
+
+set testdir = ../../test
+
+set tests = ` (cd $testdir ; ls *.f | sed -e "s/\.f//") `
+
+foreach pgm ( $tests )
+
+  if ("$host" == "") then
+     if ("$setupcmds" != "") $setupcmds
+     cd $thisdir
+     $compiler -o $pgm $fflags $testdir/$pgm.f $thisdir/libcm.so
+     echo 11 | $pgm
+  else
+     set cmd = ""
+     if ("$setupcmds" != "") set cmd = "$setupcmds"
+     set cmd = "$cmd ; cd $thisdir"
+     set cmd = "$cmd ; $compiler -o $pgm $fflags $testdir/$pgm.f $thisdir/libcm.so"
+     set cmd = "$cmd ; echo 11 | ./$pgm"
+     echo " " ; echo "Processing test $pgm on $host ... " ; echo " "
+     rsh $host "$cmd"
+  endif
+  rm -f $pgm
+
+end
